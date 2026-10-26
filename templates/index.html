@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Koya Clinic</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #f0f4f8;
+      color: #1a202c;
+      min-height: 100vh;
+    }
+
+    header {
+      background: linear-gradient(135deg, #1a56db 0%, #1e40af 100%);
+      color: #fff;
+      padding: 1.5rem 2rem;
+      box-shadow: 0 2px 8px rgba(0,0,0,.15);
+    }
+    header h1 { font-size: 1.5rem; letter-spacing: -0.01em; }
+    header p  { font-size: 0.875rem; opacity: 0.82; margin-top: 0.3rem; }
+
+    main {
+      max-width: 960px;
+      margin: 2rem auto;
+      padding: 0 1rem 4rem;
+    }
+
+    .card {
+      background: #fff;
+      border-radius: 10px;
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+      box-shadow: 0 1px 5px rgba(0,0,0,.08);
+    }
+
+    h2 {
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: #1a56db;
+      margin-bottom: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .filter-row {
+      display: flex;
+      gap: 0.75rem;
+      align-items: flex-end;
+      margin-bottom: 1rem;
+      flex-wrap: wrap;
+    }
+    .filter-row > div { flex: 1; min-width: 160px; }
+
+    label {
+      display: block;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: #4a5568;
+      margin-bottom: 0.3rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    select, input[type="text"], input[type="email"] {
+      width: 100%;
+      padding: 0.55rem 0.75rem;
+      border: 1.5px solid #cbd5e0;
+      border-radius: 7px;
+      font-size: 0.95rem;
+      background: #fff;
+      transition: border-color .15s;
+      color: #1a202c;
+    }
+    select:focus, input:focus {
+      outline: none;
+      border-color: #1a56db;
+      box-shadow: 0 0 0 3px rgba(26,86,219,.12);
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      background: #1a56db;
+      color: #fff;
+      border: none;
+      border-radius: 7px;
+      padding: 0.6rem 1.4rem;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background .15s, transform .1s;
+      white-space: nowrap;
+    }
+    .btn:hover:not(:disabled)  { background: #1e40af; }
+    .btn:active:not(:disabled) { transform: translateY(1px); }
+    .btn:disabled { background: #a0aec0; cursor: not-allowed; }
+    .btn-green  { background: #059669; }
+    .btn-green:hover:not(:disabled) { background: #047857; }
+
+    /* Slots grid */
+    .slots-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+      gap: 0.75rem;
+    }
+
+    .slot-card {
+      border: 2px solid #e2e8f0;
+      border-radius: 9px;
+      padding: 0.85rem 1rem;
+      cursor: pointer;
+      transition: border-color .15s, background .15s, transform .1s;
+      user-select: none;
+    }
+    .slot-card:hover:not(.taken) {
+      border-color: #1a56db;
+      background: #eff6ff;
+      transform: translateY(-1px);
+    }
+    .slot-card.selected {
+      border-color: #1a56db;
+      background: #eff6ff;
+      box-shadow: 0 0 0 3px rgba(26,86,219,.15);
+    }
+    .slot-card.taken {
+      opacity: 0.45;
+      cursor: not-allowed;
+      background: #f7fafc;
+    }
+
+    .slot-provider { font-size: 0.78rem; color: #718096; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
+    .slot-start    { font-size: 0.92rem; font-weight: 700; margin-top: 0.25rem; }
+    .slot-end      { font-size: 0.8rem; color: #718096; margin-top: 0.1rem; }
+
+    .badge {
+      display: inline-block;
+      font-size: 0.7rem;
+      font-weight: 700;
+      padding: 0.15rem 0.5rem;
+      border-radius: 999px;
+      margin-top: 0.4rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .badge-open  { background: #d1fae5; color: #065f46; }
+    .badge-taken { background: #fee2e2; color: #991b1b; }
+
+    /* Form section */
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    @media (max-width: 520px) { .form-grid { grid-template-columns: 1fr; } }
+
+    .form-field { display: flex; flex-direction: column; }
+    .form-field label { margin-bottom: 0.3rem; }
+
+    #selectedInfo {
+      font-size: 0.875rem;
+      color: #4a5568;
+      background: #f7fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 7px;
+      padding: 0.6rem 0.9rem;
+      margin-bottom: 1rem;
+    }
+
+    /* Messages */
+    .msg {
+      padding: 0.7rem 1rem;
+      border-radius: 7px;
+      font-size: 0.9rem;
+      margin-top: 0.75rem;
+    }
+    .msg-error   { background: #fff5f5; color: #c53030; border: 1px solid #feb2b2; }
+    .msg-success { background: #f0fff4; color: #276749; border: 1px solid #9ae6b4; }
+
+    /* Confirmation */
+    .confirm-box { text-align: center; padding: 0.5rem 0; }
+    .confirm-icon { font-size: 3.5rem; }
+    .confirm-box h3 { font-size: 1.4rem; color: #065f46; margin: 0.5rem 0 0.25rem; }
+    .confirm-box p  { color: #718096; font-size: 0.9rem; margin-bottom: 1.25rem; }
+
+    .detail-table { width: 100%; border-collapse: collapse; text-align: left; margin: 0 auto 1.5rem; max-width: 480px; }
+    .detail-table td { padding: 0.45rem 0.25rem; border-bottom: 1px solid #e2e8f0; font-size: 0.9rem; }
+    .detail-table td:first-child { color: #718096; width: 38%; font-weight: 600; }
+    .detail-table td:last-child  { color: #1a202c; }
+
+    .mono { font-family: "SF Mono", "Fira Mono", monospace; font-size: 0.8rem; word-break: break-all; }
+
+    #loading { color: #718096; text-align: center; padding: 1.5rem; font-size: 0.9rem; }
+    .empty   { color: #718096; font-size: 0.9rem; padding: 1rem 0; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Koya Clinic</h1>
+  <p>View available appointment slots and book yourself</p>
+</header>
+
+<main>
+
+  <!--  Step 1: Available slots  -->
+  <div class="card" id="step-slots">
+    <h2>Available Slots</h2>
+
+    <div class="filter-row">
+      <div>
+        <label for="providerFilter">Provider</label>
+        <select id="providerFilter" onchange="loadSlots()">
+          <option value="">All providers</option>
+        </select>
+      </div>
+      <button class="btn" onclick="loadSlots()">Refresh</button>
+    </div>
+
+    <div id="slotsContainer"><div id="loading">Loading slots...</div></div>
+  </div>
+
+  <!--  Step 2: Booking form  -->
+  <div class="card" id="step-form">
+    <h2>Your Details</h2>
+
+    <div id="selectedInfo">Select an available slot above to continue.</div>
+
+    <div class="form-grid">
+      <div class="form-field">
+        <label for="nameInput">Full name</label>
+        <input id="nameInput" type="text" placeholder="Ada Obi" autocomplete="name" />
+      </div>
+      <div class="form-field">
+        <label for="emailInput">Email address</label>
+        <input id="emailInput" type="email" placeholder="ada@example.com" autocomplete="email" />
+      </div>
+    </div>
+
+    <button class="btn" id="bookBtn" onclick="submitBooking()" style="margin-top:0.25rem">
+      Book Appointment
+    </button>
+    <div id="formMsg"></div>
+  </div>
+
+  <!--  Step 3: Confirmation  -->
+  <div class="card" id="step-confirm" style="display:none">
+    <div class="confirm-box">
+      <div class="confirm-icon"></div>
+      <h3>Booking Confirmed!</h3>
+      <p>Your appointment has been successfully booked. Pls keep your booking ID safe.</p>
+      <table class="detail-table"><tbody id="confirmDetails"></tbody></table>
+      <button class="btn btn-green" onclick="bookAnother()">Book Another Appointment</button>
+    </div>
+  </div>
+
+</main>
+
+<script>
+  /*  Config  */
+  const API_KEY = "__API_KEY__";
+  const H = { "X-API-Key": API_KEY, "Content-Type": "application/json" };
+
+  /*  State  */
+  let selectedSlot = null;
+  let cachedSlots  = [];
+
+  /*  Helpers  */
+  function esc(s) {
+    return String(s)
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  }
+
+  function fmtDateTime(iso) {
+    return new Date(iso).toLocaleString(undefined, {
+      weekday: "short", month: "short", day: "numeric",
+      hour: "2-digit", minute: "2-digit"
+    });
+  }
+
+  function fmtTime(iso) {
+    return new Date(iso).toLocaleTimeString(undefined, {
+      hour: "2-digit", minute: "2-digit"
+    });
+  }
+
+  /*  Load & render slots  */
+  async function loadSlots() {
+    const provider = document.getElementById("providerFilter").value;
+    const url = "/slots" + (provider ? "?provider=" + encodeURIComponent(provider) : "");
+
+    document.getElementById("slotsContainer").innerHTML =
+      '<div id="loading">Loading slots...</div>';
+    deselectSlot();
+
+    try {
+      const res  = await fetch(url, { headers: H });
+      const data = await res.json();
+      cachedSlots = data.slots || [];
+      populateProviders(cachedSlots);
+      renderSlots(cachedSlots);
+    } catch (_) {
+      document.getElementById("slotsContainer").innerHTML =
+        '<div class="msg msg-error">Could not load slots. Pls refresh.</div>';
+    }
+  }
+
+  function populateProviders(slots) {
+    const sel     = document.getElementById("providerFilter");
+    const current = sel.value;
+    const names   = [...new Set(slots.map(s => s.provider))].sort();
+    sel.innerHTML  = '<option value="">All providers</option>';
+    names.forEach(p => {
+      const opt = document.createElement("option");
+      opt.value = p;
+      opt.textContent = p;
+      if (p === current) opt.selected = true;
+      sel.appendChild(opt);
+    });
+  }
+
+  function renderSlots(slots) {
+    const c = document.getElementById("slotsContainer");
+    if (!slots.length) {
+      c.innerHTML = '<p class="empty">No slots found for this selection.</p>';
+      return;
+    }
+    c.innerHTML = '<div class="slots-grid"></div>';
+    const grid = c.querySelector(".slots-grid");
+    slots.forEach(s => {
+      const card = document.createElement("div");
+      card.className = "slot-card" + (s.available ? "" : " taken");
+      card.dataset.id = s.id;
+      card.innerHTML = `
+        <div class="slot-provider">${esc(s.provider)}</div>
+        <div class="slot-start">${fmtDateTime(s.start)}</div>
+        <div class="slot-end">ends ${fmtTime(s.end)}</div>
+        <span class="badge ${s.available ? "badge-open" : "badge-taken"}">
+          ${s.available ? "Available" : "Booked"}
+        </span>`;
+      if (s.available) {
+        card.addEventListener("click", () => selectSlot(s));
+      }
+      grid.appendChild(card);
+    });
+  }
+
+  /*  Slot selection  */
+  function selectSlot(slot) {
+    selectedSlot = slot;
+    document.querySelectorAll(".slot-card").forEach(c => c.classList.remove("selected"));
+    const card = document.querySelector(`.slot-card[data-id="${esc(slot.id)}"]`);
+    if (card) card.classList.add("selected");
+
+    document.getElementById("selectedInfo").textContent =
+      `Selected: ${slot.provider} ${fmtDateTime(slot.start)} to ${fmtTime(slot.end)}`;
+    document.getElementById("formMsg").innerHTML = "";
+    document.getElementById("nameInput").focus();
+  }
+
+  function deselectSlot() {
+    selectedSlot = null;
+    document.getElementById("selectedInfo").textContent =
+      "Select an available slot above to continue.";
+  }
+
+  /*  Submit booking  */
+  async function submitBooking() {
+    const name  = document.getElementById("nameInput").value;
+    const email = document.getElementById("emailInput").value;
+    const msgEl = document.getElementById("formMsg");
+    msgEl.innerHTML = "";
+
+    if (!selectedSlot) {
+      msgEl.innerHTML = '<div class="msg msg-error">Please select an available slot first.</div>';
+      return;
+    }
+    if (!name.trim()) {
+      msgEl.innerHTML = '<div class="msg msg-error">Please enter your full name.</div>';
+      return;
+    }
+    if (!email.trim()) {
+      msgEl.innerHTML = '<div class="msg msg-error">Please enter your email address.</div>';
+      return;
+    }
+
+    const btn = document.getElementById("bookBtn");
+    btn.disabled    = true;
+    btn.textContent = "Booking…";
+
+    try {
+      const res  = await fetch("/bookings", {
+        method: "POST",
+        headers: H,
+        body: JSON.stringify({
+          slot_id: selectedSlot.id,
+          name:    name.trim(),
+          email:   email.trim()
+        })
+      });
+      const data = await res.json();
+
+      if (res.status === 201) {
+        showConfirmation(data);
+      } else {
+        const friendly = {
+          409: "This slot was just taken. Please choose a different one.",
+          429: "Too many attempts. Please wait a moment and try again.",
+        };
+        msgEl.innerHTML =
+          `<div class="msg msg-error">${esc(friendly[res.status] || data.error || "Booking failed. Please try again.")}</div>`;
+        if (res.status === 409) loadSlots();
+      }
+    } catch (_) {
+      msgEl.innerHTML =
+        '<div class="msg msg-error">Network error. Please check your connection and try again.</div>';
+    } finally {
+      btn.disabled    = false;
+      btn.textContent = "Book Appointment";
+    }
+  }
+
+  /*  Show confirmation  */
+  function showConfirmation(booking) {
+    const slot = cachedSlots.find(s => s.id === booking.slot_id) || {};
+    const appt = slot.start
+      ? `${fmtDateTime(slot.start)} - ${fmtTime(slot.end)}`
+      : booking.slot_id;
+
+    const rows = [
+      ["Booking ID",   `<span class="mono">${esc(booking.id)}</span>`],
+      ["Name",         esc(booking.name)],
+      ["Email",        esc(booking.email)],
+      ["Provider",     esc(slot.provider || "-")],
+      ["Appointment",  esc(appt)],
+      ["Status",       `<strong style="color:#065f46">${esc(booking.status)}</strong>`],
+      ["Booked at",    esc(fmtDateTime(booking.created_at))],
+    ];
+
+    document.getElementById("confirmDetails").innerHTML =
+      rows.map(([k, v]) => `<tr><td>${k}</td><td>${v}</td></tr>`).join("");
+
+    const box = document.getElementById("step-confirm");
+    box.style.display = "";
+    box.scrollIntoView({ behavior: "smooth", block: "start" });
+
+    document.getElementById("nameInput").value  = "";
+    document.getElementById("emailInput").value = "";
+    document.getElementById("formMsg").innerHTML = "";
+  }
+
+  /*  Book another  */
+  function bookAnother() {
+    document.getElementById("step-confirm").style.display = "none";
+    deselectSlot();
+    loadSlots();
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  /*  Bootstrap  */
+  loadSlots();
+</script>
+</body>
+</html>
