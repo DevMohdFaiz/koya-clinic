@@ -8,7 +8,7 @@ import re
 import uuid
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
-from dotenv import load_dotenv, get_key
+from dotenv import load_dotenv
 
 import psycopg
 from fastapi import FastAPI, Request
@@ -18,9 +18,10 @@ from psycopg.types.json import Jsonb
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 app = FastAPI()
+load_dotenv()
 
-API_KEY = get_key(".env", "API_KEY")
-DATABASE_URL = get_key(".env", "DATABASE_URL")
+API_KEY = os.getenv("API_KEY")
+DATABASE_URL = os.getenv("DATABASE_URL")
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 SCHEMA = """
@@ -60,23 +61,25 @@ _ready = False
 
 def seed_demo_slots(conn):
     base = datetime.now(timezone.utc).replace(hour=9, minute=0, second=0, microsecond=0)
-    n = 1
+    rows = []
     for day in range(1, 3):
-        for hour in (10, 12):
+        for hour in (9, 10, 11, 14, 15):
             start = base + timedelta(days=day, hours=hour - 9)
-            end = start + timedelta(minutes=45)
-            provider = "Dr Wale" if hour == 10 else "Dr Musa"
-            conn.execute(
-                "INSERT INTO slots (id, provider, start_at, end_at) VALUES (%s, %s, %s, %s)",
-                (f"s{n}", provider, start, end),
-            )
-            n += 1
+            end = start + timedelta(minutes=30)
+            provider = "Dr Mike" if hour in (10, 15) else "Dr Ola"
+            slot_id = f"s_{start.strftime('%Y%m%d_%H%M')}"
+            rows.append((slot_id, provider, start, end))
+    with conn.cursor() as cur:
+        cur.executemany(
+            "INSERT INTO slots (id, provider, start_at, end_at) VALUES (%s, %s, %s, %s) ON CONFLICT (id) DO NOTHING",
+            rows,
+        )
 
-
+LOCAL_DB = os.getenv("LOCAL_DATABASE")
 def db():
     """Open a connection. Use as `with db() as conn:` (commits on exit)."""
     global _ready
-    conn = psycopg.connect(DATABASE_URL, row_factory=dict_row)
+    conn = psycopg.connect(LOCAL_DB, row_factory=dict_row)
     if not _ready:
         with conn.transaction():
             conn.execute("SELECT pg_advisory_xact_lock(1)")
@@ -145,13 +148,23 @@ async def http_error(request: Request, exc: StarletteHTTPException):
 
 @app.get("/", include_in_schema=False)
 def home():
+    with db() as conn:
+        has_future_available = conn.execute("""
+            SELECT 1 FROM slots s
+            WHERE s.start_at > now()
+            AND NOT EXISTS (
+                SELECT 1 FROM bookings b WHERE b.slot_id = s.id AND b.status = 'confirmed'
+            )
+            LIMIT 1
+        """).fetchone()
+        if not has_future_available:
+            seed_demo_slots(conn)
     html = (Path(__file__).parent / "templates" / "index.html").read_text()
     key = json.dumps(API_KEY)[1:-1].replace("<", "\\u003c")
     return HTMLResponse(html.replace("__API_KEY__", key))
 
 
 #  Level 1: slots 
-
 @app.post("/reset")
 async def reset(request: Request):
     data = await read_json(request)
@@ -211,9 +224,8 @@ def list_slots(provider: str | None = None):
 
 
 #  Levels 1 to 5: booking 
-
 def over_rate_limit(conn, email):
-    """Level 5. Returns seconds to wait if the email is over 5 attempts a minute, else records the attempt."""
+    """Returns seconds to wait if the email is over 5 attempts a minute, else records the attempt."""
     conn.execute("SELECT pg_advisory_xact_lock(hashtext(%s))", ("rate:" + email,))
     row = conn.execute(
         """SELECT count(*) AS n, min(at) AS oldest, clock_timestamp() AS now
