@@ -75,11 +75,10 @@ def seed_demo_slots(conn):
             rows,
         )
 
-LOCAL_DB = os.getenv("LOCAL_DATABASE")
 def db():
     """Open a connection. Use as `with db() as conn:` (commits on exit)."""
     global _ready
-    conn = psycopg.connect(LOCAL_DB, row_factory=dict_row)
+    conn = psycopg.connect(DATABASE_URL, row_factory=dict_row)
     if not _ready:
         with conn.transaction():
             conn.execute("SELECT pg_advisory_xact_lock(1)")
