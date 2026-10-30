@@ -60,15 +60,24 @@ _ready = False
 
 
 def seed_demo_slots(conn):
-    base = datetime.now(timezone.utc).replace(hour=9, minute=0, second=0, microsecond=0)
+    slots = [
+        {"id": "slot-1", "provider": "Dr Ben", "start": "2026-11-10T09:00:00Z", "end": "2026-11-20T09:30:00Z"},
+        {"id": "slot-2", "provider": "Dr Mike", "start": "2026-11-10T10:00:00Z", "end": "2026-11-20T10:30:00Z"},
+        {"id": "slot-3", "provider": "Dr Musa", "start": "2026-11-10T11:00:00Z", "end": "2026-11-20T11:30:00Z"},
+        {"id": "ghost-1", "provider": "Dr Tom", "start": "2026-11-10T12:00:00Z", "end": "2026-11-20T11:30:00Z"},
+        {"id": "ghost-2", "provider": "Dr King", "start": "2026-11-10T13:00:00Z", "end": "2026-11-20T11:30:00Z"},
+        {"id": "ghost-3", "provider": "Dr Fareed", "start": "2026-11-10T14:00:00Z", "end": "2026-11-20T11:30:00Z"},
+        {"id": "ghost-4", "provider": "Dr Basit", "start": "2026-11-10T15:30:00Z", "end": "2026-11-20T11:30:00Z"},
+        {"id": "ghost-5", "provider": "Dr Olu", "start": "2026-11-10T16:00:00Z", "end": "2026-11-20T11:30:00Z"},
+        {"id": "ghost-6", "provider": "Dr Wale", "start": "2026-11-10T16:30:00Z", "end": "2026-11-20T11:30:00Z"}
+    ]
     rows = []
-    for day in range(1, 3):
-        for hour in (9, 10, 11, 14, 15):
-            start = base + timedelta(days=day, hours=hour - 9)
-            end = start + timedelta(minutes=30)
-            provider = "Dr Mike" if hour in (10, 15) else "Dr Ola"
-            slot_id = f"s_{start.strftime('%Y%m%d_%H%M')}"
-            rows.append((slot_id, provider, start, end))
+    for slot in slots:
+        start = slot["start"]
+        end = slot["end"]
+        provider = slot["provider"]
+        slot_id = slot["id"]
+        rows.append((slot_id, provider, start, end))
     with conn.cursor() as cur:
         cur.executemany(
             "INSERT INTO slots (id, provider, start_at, end_at) VALUES (%s, %s, %s, %s) ON CONFLICT (id) DO NOTHING",
@@ -144,7 +153,6 @@ async def http_error(request: Request, exc: StarletteHTTPException):
 
 
 #  Web page 
-
 @app.get("/", include_in_schema=False)
 def home():
     with db() as conn:
@@ -252,8 +260,7 @@ def place_booking(conn, data, name, email):
     if slot["start_at"] <= datetime.now(timezone.utc):
         return 400, {"error": "slot has already started"}
 
-    # The partial unique index lets only one confirmed booking exist per slot,
-    # so two simultaneous requests cannot both win.
+    # The partial unique index lets only one confirmed booking exist per slot
     row = conn.execute(
         """INSERT INTO bookings (id, slot_id, name, email, status)
            VALUES (%s, %s, %s, %s, 'confirmed')
@@ -282,7 +289,7 @@ async def create_booking(request: Request):
 
     with db() as conn:
         if key:
-            # Level 4: the lock makes two simultaneous requests with one key run one after the other.
+            # the lock makes two simultaneous requests with one key run one after the other.
             conn.execute("SELECT pg_advisory_xact_lock(hashtext(%s))", ("idem:" + key,))
             old = conn.execute("SELECT * FROM idempotency WHERE key = %s", (key,)).fetchone()
             if old:
@@ -290,8 +297,7 @@ async def create_booking(request: Request):
                     return err(422, "Idempotency-Key was already used with a different body")
                 return JSONResponse(old["response"], status_code=old["status"])
 
-        # Level 5: every new attempt counts, even ones that fail validation.
-        # A replay of an earlier request (above) is not a new attempt.
+        # every new attempt counts, even ones that fail validation.
         if email:
             wait = over_rate_limit(conn, email)
             if wait:
@@ -346,8 +352,6 @@ def get_booking(booking_id: str):
         return err(404, "booking not found")
     return booking_out(row)
 
-
-#  Level 3: cancel 
 
 @app.delete("/bookings/{booking_id}")
 def cancel_booking(booking_id: str):
